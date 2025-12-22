@@ -1,7 +1,9 @@
+version: "3.9"
+
 services:
   # API Gateway
   api-gateway:
-  image: ramyasree15/api-gateway:latest
+    image: ramyasree15/api-gateway:latest
     build:
       context: ./api-gateway
       dockerfile: Dockerfile
@@ -23,7 +25,7 @@ services:
 
   # Microservices
   user-service:
-  image: ramyasree15/user-service:latest
+    image: ramyasree15/user-service:latest
     build:
       context: ./user-service
       dockerfile: Dockerfile
@@ -36,7 +38,7 @@ services:
       - user-mongodb
 
   product-catalog-service:
-  image: ramyasree15/product-catalog-service:latest
+    image: ramyasree15/product-catalog-service:latest
     build:
       context: ./product-catalog-service
       dockerfile: Dockerfile
@@ -62,7 +64,7 @@ services:
       - shopping-cart-mongodb
 
   order-service:
-  image: ramyasree15/order-service:latest
+    image: ramyasree15/order-service:latest
     build:
       context: ./order-service
       dockerfile: Dockerfile
