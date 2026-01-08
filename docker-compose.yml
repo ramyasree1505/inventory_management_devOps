@@ -1,90 +1,118 @@
 version: "3.9"
 
 services:
-
+  # API Gateway
   api-gateway:
-    build: ./api-gateway
+    image: ramyasree15/api-gateway:latest
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
     container_name: api-gateway
     ports:
-      - "3001:3001"
-    env_file:
-      - ./env/api-gateway.env
+      - "3000:3000"
+    volumes:
+      - ./api-gateway/.env:/app/.env
+    networks:
+      - public-network
+      - ecommerce-network
     depends_on:
-      - kafka
       - user-service
       - product-catalog-service
       - shopping-cart-service
       - order-service
       - notification-service
       - payment-service
-    networks:
-      - public-network
-      - ecommerce-network
 
+  # Microservices
   user-service:
-    build: ./user-service
+    image: ramyasree15/user-service:latest
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
     container_name: user-service
-    env_file:
-      - ./env/user-service.env
-    depends_on:
-      - kafka
-      - user-mongodb
+    volumes:
+      - ./user-service/.env:/app/.env
     networks:
       - ecommerce-network
+    depends_on:
+      - user-mongodb
 
   product-catalog-service:
-    build: ./product-catalog-service
+    image: ramyasree15/product-catalog-service:latest
+    build:
+      context: ./product-catalog-service
+      dockerfile: Dockerfile
     container_name: product-catalog-service
-    env_file:
-      - ./env/product-catalog.env
-    depends_on:
-      - kafka
-      - product-catalog-mongodb
+    volumes:
+      - ./product-catalog-service/.env:/app/.env
     networks:
       - ecommerce-network
+    depends_on:
+      - product-catalog-mongodb
 
   shopping-cart-service:
-    build: ./shopping-cart-service
+    image: ramyasree15/shopping-cart-service:latest
+    build:
+      context: ./shopping-cart-service
+      dockerfile: Dockerfile
     container_name: shopping-cart-service
-    env_file:
-      - ./env/shopping-cart.env
-    depends_on:
-      - kafka
-      - shopping-cart-mongodb
+    volumes:
+      - ./shopping-cart-service/.env:/app/.env
     networks:
       - ecommerce-network
+    depends_on:
+      - shopping-cart-mongodb
 
   order-service:
-    build: ./order-service
+    image: ramyasree15/order-service:latest
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
     container_name: order-service
-    env_file:
-      - ./env/order-service.env
-    depends_on:
-      - kafka
-      - order-mongodb
+    volumes:
+      - ./order-service/.env:/app/.env
     networks:
       - ecommerce-network
+    depends_on:
+      - order-mongodb
 
   notification-service:
-    build: ./notification-service
+    image: ramyasree15/notification-service:latest
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
     container_name: notification-service
-    env_file:
-      - ./env/notification.env
-    depends_on:
-      - kafka
+    volumes:
+      - ./notification-service/.env:/app/.env
     networks:
       - ecommerce-network
 
   payment-service:
-    build: ./payment-service
+    image: ramyasree15/payment-service:latest
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
     container_name: payment-service
-    env_file:
-      - ./env/payment.env
-    depends_on:
-      - kafka
+    volumes:
+      - ./payment-service/.env:/app/.env
+    environment:
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
     networks:
       - ecommerce-network
 
+  # Stripe CLI
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    container_name: stripe-cli
+    command: listen --forward-to http://host.docker.internal:3000/webhook
+    # this command is if you want to work with the service in development directly without the API gateway routing.
+    # command: listen --forward-to http://host.docker.internal:3005/api/payment/webhook
+    environment:
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY}
+    networks:
+      - ecommerce-network
+
+  # Kafka
   zooper:
     image: confluentinc/cp-zookeeper:7.4.1
     container_name: zooper
@@ -93,26 +121,31 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     networks:
       - ecommerce-network
-
+    
   kafka:
     image: confluentinc/cp-kafka:7.4.1
     container_name: kafka
     depends_on:
       - zooper
+    ports:
+      - "9093:9093"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zooper:2181
-      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
       - ecommerce-network
-
+    
+  # Databases
   user-mongodb:
     image: mongo:latest
     container_name: user-mongodb
+    ports:
+      - "27017:27017"
     volumes:
       - ./volumes/user-mongodb-data:/data/db
     networks:
@@ -121,6 +154,8 @@ services:
   product-catalog-mongodb:
     image: mongo:latest
     container_name: product-catalog-mongodb
+    ports:
+      - "27018:27017"
     volumes:
       - ./volumes/product-catalog-mongodb-data:/data/db
     networks:
@@ -129,6 +164,8 @@ services:
   shopping-cart-mongodb:
     image: mongo:latest
     container_name: shopping-cart-mongodb
+    ports:
+      - "27019:27017"
     volumes:
       - ./volumes/shopping-cart-mongodb-data:/data/db
     networks:
@@ -137,6 +174,8 @@ services:
   order-mongodb:
     image: mongo:latest
     container_name: order-mongodb
+    ports:
+      - "27020:27017"
     volumes:
       - ./volumes/order-mongodb-data:/data/db
     networks:
@@ -145,5 +184,6 @@ services:
 networks:
   public-network:
     driver: bridge
+    internal: false
   ecommerce-network:
     driver: bridge
