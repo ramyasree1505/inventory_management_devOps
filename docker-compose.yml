@@ -1,191 +1,149 @@
 version: "3.9"
 
 services:
+
   api-gateway:
-    image: ramyasree15/api-gateway:latest
-    build:
-      context: ./api-gateway
-      dockerfile: Dockerfile
+    build: ./api-gateway
+    container_name: api-gateway
     ports:
       - "3000:3000"
-    volumes:
-      - ./api-gateway/.env:/app/.env
-    restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+    env_file:
+      - ./env/api-gateway.env
+    depends_on:
+      - kafka
+      - user-service
+      - product-catalog-service
+      - shopping-cart-service
+      - order-service
+      - notification-service
+      - payment-service
     networks:
       - public-network
       - ecommerce-network
-    depends_on:
-      user-service:
-        condition: service_started
-      product-catalog-service:
-        condition: service_started
-      shopping-cart-service:
-        condition: service_started
-      order-service:
-        condition: service_started
-      notification-service:
-        condition: service_started
-      payment-service:
-        condition: service_started
 
   user-service:
-    image: ramyasree15/user-service:latest
-    build:
-      context: ./user-service
-      dockerfile: Dockerfile
-    volumes:
-      - ./user-service/.env:/app/.env
-    restart: always
+    build: ./user-service
+    container_name: user-service
+    env_file:
+      - ./env/user-service.env
+    depends_on:
+      - kafka
+      - user-mongodb
     networks:
       - ecommerce-network
-    depends_on:
-      user-mongodb:
-        condition: service_started
 
   product-catalog-service:
-    image: ramyasree15/product-catalog-service:latest
-    build:
-      context: ./product-catalog-service
-      dockerfile: Dockerfile
-    volumes:
-      - ./product-catalog-service/.env:/app/.env
-    restart: always
+    build: ./product-catalog-service
+    container_name: product-catalog-service
+    env_file:
+      - ./env/product-catalog.env
+    depends_on:
+      - kafka
+      - product-catalog-mongodb
     networks:
       - ecommerce-network
-    depends_on:
-      product-catalog-mongodb:
-        condition: service_started
 
   shopping-cart-service:
-    image: ramyasree15/shopping-cart-service:latest
-    build:
-      context: ./shopping-cart-service
-      dockerfile: Dockerfile
-    volumes:
-      - ./shopping-cart-service/.env:/app/.env
-    restart: always
+    build: ./shopping-cart-service
+    container_name: shopping-cart-service
+    env_file:
+      - ./env/shopping-cart.env
+    depends_on:
+      - kafka
+      - shopping-cart-mongodb
     networks:
       - ecommerce-network
-    depends_on:
-      shopping-cart-mongodb:
-        condition: service_started
 
   order-service:
-    image: ramyasree15/order-service:latest
-    build:
-      context: ./order-service
-      dockerfile: Dockerfile
-    volumes:
-      - ./order-service/.env:/app/.env
-    restart: always
+    build: ./order-service
+    container_name: order-service
+    env_file:
+      - ./env/order-service.env
+    depends_on:
+      - kafka
+      - order-mongodb
     networks:
       - ecommerce-network
-    depends_on:
-      order-mongodb:
-        condition: service_started
 
   notification-service:
-    image: ramyasree15/notification-service:latest
-    build:
-      context: ./notification-service
-      dockerfile: Dockerfile
-    volumes:
-      - ./notification-service/.env:/app/.env
-    restart: always
+    build: ./notification-service
+    container_name: notification-service
+    env_file:
+      - ./env/notification.env
+    depends_on:
+      - kafka
     networks:
       - ecommerce-network
 
   payment-service:
-    image: ramyasree15/payment-service:latest
-    build:
-      context: ./payment-service
-      dockerfile: Dockerfile
-    volumes:
-      - ./payment-service/.env:/app/.env
-    environment:
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-    restart: always
-    networks:
-      - ecommerce-network
-
-  stripe-cli:
-    image: stripe/stripe-cli:latest
-    command: listen --forward-to http://api-gateway:3000/webhook
-    environment:
-      STRIPE_API_KEY: ${STRIPE_SECRET_KEY}
-    restart: always
+    build: ./payment-service
+    container_name: payment-service
+    env_file:
+      - ./env/payment.env
+    depends_on:
+      - kafka
     networks:
       - ecommerce-network
 
   zooper:
     image: confluentinc/cp-zookeeper:7.4.1
+    container_name: zooper
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-    restart: always
     networks:
       - ecommerce-network
 
   kafka:
     image: confluentinc/cp-kafka:7.4.1
+    container_name: kafka
     depends_on:
-      zooper:
-        condition: service_started
-    ports:
-      - "9093:9093"
+      - zooper
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zooper:2181
-      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9093
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    restart: always
     networks:
       - ecommerce-network
 
   user-mongodb:
     image: mongo:latest
+    container_name: user-mongodb
     volumes:
       - ./volumes/user-mongodb-data:/data/db
-    restart: always
     networks:
       - ecommerce-network
 
   product-catalog-mongodb:
     image: mongo:latest
+    container_name: product-catalog-mongodb
     volumes:
       - ./volumes/product-catalog-mongodb-data:/data/db
-    restart: always
     networks:
       - ecommerce-network
 
   shopping-cart-mongodb:
     image: mongo:latest
+    container_name: shopping-cart-mongodb
     volumes:
       - ./volumes/shopping-cart-mongodb-data:/data/db
-    restart: always
     networks:
       - ecommerce-network
 
   order-mongodb:
     image: mongo:latest
+    container_name: order-mongodb
     volumes:
       - ./volumes/order-mongodb-data:/data/db
-    restart: always
     networks:
       - ecommerce-network
 
 networks:
   public-network:
     driver: bridge
-    internal: false
   ecommerce-network:
     driver: bridge
