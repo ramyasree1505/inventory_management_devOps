@@ -1,0 +1,6 @@
+aws_region        = "ap-south-1"
+instance_type    = "t3.micro"
+ami_id           = "ami-0c2af51e265bd5e0e"  
+subnet_id        = "subnet-0123456789abcdef0"
+security_group_id = "sg-0123456789abcdef0"
+s3_bucket_name   = "beginner-terraform-bucket-mumbai-123"
